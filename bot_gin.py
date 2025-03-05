@@ -138,7 +138,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
 
     # 抽 tags 功能
-    if user_content.find("抽") != -1:
+    elif user_content.find("抽") != -1:
         # 正則表達式：新增<category><num>個
         pattern = r"(?:.*[\n\s]*)?抽(\w{2})(\d+)"
         # 進行匹配
@@ -162,7 +162,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
 
     # 檢舉功能
-    if user_content.find("檢舉") != -1:
+    elif user_content.find("檢舉") != -1:
         # 正則表達式：檢舉<category>：<tag>、<tag>、......
         pattern = r"(?:.*[\n\s]*)?檢舉(\w{2})：(.+)"
         category, options = start_match(pattern, user_content)
@@ -188,7 +188,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
     
     # 刪除 tag 功能(僅限管理員)
-    if user_content.find("刪除") != -1 and isAdmin:
+    elif user_content.find("刪除") != -1 and isAdmin:
         pattern = r"(?:.*[\n\s]*)?刪除(\w{2})：(.+)"
         category, options = start_match(pattern, user_content)
         if category is not None and options is not None:
@@ -210,7 +210,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
 
     # 阿金乾杯!
-    if user_content.find("乾杯") != -1:
+    elif user_content.find("乾杯") != -1:
         plurkResponse(pid, f"@{user_nick_name}: 阿金準備了(dice10)杯琴酒，今天不醉不歸！")
 
     else:
@@ -265,16 +265,6 @@ while True:
         # print(f"msg get:\n{msg}")
         isAdmin = False
 
-        if str(user_id) == "17637392":
-            print("阿金抓到自己")
-            continue
-            # try:
-            #     pid = msg['plurk']['plurk_id']
-            #     user_id = msg['plurk']['user_id']
-            # except Exception as e:
-            #     print("get error: \n" + str(e))
-            #     continue
-
         pid = msg.get('plurk_id')
         try:
             user_id = msg['response']['user_id']
@@ -284,6 +274,16 @@ while True:
         except Exception as e:
             print("get error: \n" + str(e))
             continue
+
+        if str(user_id) == "17637392":
+            print("阿金抓到自己")
+            continue
+            # try:
+            #     pid = msg['plurk']['plurk_id']
+            #     user_id = msg['plurk']['user_id']
+            # except Exception as e:
+            #     print("get error: \n" + str(e))
+            #     continue
 
         # 檢查是否為好友
         if str(user_id) not in friend_list:
