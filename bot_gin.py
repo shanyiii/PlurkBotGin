@@ -2,7 +2,7 @@ from plurk_oauth import PlurkAPI
 from db_manager import db_addData, db_readData, db_removeData
 from common import BAN_LIST, GIN_RANDOM_RESPONSES
 import urllib.request
-import re, json, random
+import re, json, random, time
 
 APP_KEY = "Y1zrw4VROaDF"
 APP_SECRET = "B5P3tzU5cugiJPt03MU0Fq1uzlCeom5x"
@@ -47,12 +47,21 @@ def setFriendList():
 # 認證+初始化+get data
 def initApi():
     auth()
-    plurk.callAPI('/APP/Alerts/addAllAsFriends')
-    setFriendList()
-    req = urllib.request.urlopen(comet_channel % new_offset, timeout=80)
-    rawdata = req.read()
-    match = jsonp_re.match(rawdata.decode('ISO-8859-1'))
-    return match
+    try:
+        plurk.callAPI('/APP/Alerts/addAllAsFriends')
+        setFriendList()
+        req = urllib.request.urlopen(comet_channel % new_offset, timeout=50)
+        rawdata = req.read()
+        match = jsonp_re.match(rawdata.decode('ISO-8859-1'))
+        return match
+    except urllib.error.URLError as e:
+        print(f"Plurk API 請求失敗: {e}")
+        time.sleep(5)  # 等待 5 秒後重試
+    except TimeoutError as e:
+        print(f"timeoyt: {e}")
+        time.sleep(5)  # 等待 5 秒後重試
+
+    return None
 
 # 回覆
 def plurkResponse(pid, bot_content):
@@ -121,12 +130,12 @@ def slotTags(category, num):
     return slot_result
 
 def dealContent(pid, user_content, isAdmin, p, user_nick_name):
-    print(f"reply plurk id:{pid}\ncontent:{user_content}")
+    print(f"reply plurk id: {pid}\nuser nick name: {user_nick_name}\ncontent: {user_content}")
     print(f"is admin: {isAdmin}")
     # plurkResponse(pid, f"@{user_nick_name}: 阿金寶貝進入新噗文留下一顆心 (heart)")
 
     # 新增 tags 功能
-    if user_content.find("新增") != -1:
+    if user_content.find("新增") != -1 and user_content.find("@gin_the_golden") != -1:
         # 正則表達式：新增<category>：<tag>、<tag>
         pattern = r"(?:.*[\n\s]*)?新增(\w{2})：(.+)"
         # 進行匹配
@@ -138,7 +147,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
 
     # 抽 tags 功能
-    elif user_content.find("抽") != -1:
+    elif user_content.find("抽") != -1 and user_content.find("@gin_the_golden") != -1:
         # 正則表達式：新增<category><num>個
         pattern = r"(?:.*[\n\s]*)?抽(\w{2})(\d+)"
         # 進行匹配
@@ -162,7 +171,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
 
     # 檢舉功能
-    elif user_content.find("檢舉") != -1:
+    elif user_content.find("檢舉") != -1 and user_content.find("@gin_the_golden") != -1:
         # 正則表達式：檢舉<category>：<tag>、<tag>、......
         pattern = r"(?:.*[\n\s]*)?檢舉(\w{2})：(.+)"
         category, options = start_match(pattern, user_content)
@@ -188,7 +197,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
     
     # 刪除 tag 功能(僅限管理員)
-    elif user_content.find("刪除") != -1 and isAdmin:
+    elif user_content.find("刪除") != -1 and isAdmin and user_content.find("@gin_the_golden") != -1:
         pattern = r"(?:.*[\n\s]*)?刪除(\w{2})：(.+)"
         category, options = start_match(pattern, user_content)
         if category is not None and options is not None:
@@ -210,10 +219,10 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
 
     # 阿金乾杯!
-    elif user_content.find("乾杯") != -1:
+    elif user_content.find("乾杯") != -1 and user_content.find("@gin_the_golden") != -1:
         plurkResponse(pid, f"@{user_nick_name}: 阿金準備了(dice10)杯琴酒，今天不醉不歸！")
 
-    else:
+    elif user_content.find("@gin_the_golden") != -1:
         res_list = GIN_RANDOM_RESPONSES
         random.shuffle(res_list)
         plurkResponse(pid, f"@{user_nick_name}: {res_list[0]}")
@@ -231,6 +240,9 @@ def responseMentioned():
         for p in plurks:
             if p is not None:
                 if p['type'] == "mentioned":
+                    if str(p["from_user"]["id"]) not in friend_list:
+                        print("Not in friend list.")
+                        continue
                     print(f"[responseMentioned]: plurk id = {p['plurk_id']}\n")
                     isAdmin = False
                     # plurkResponse(p['plurk_id'], f"@{p["from_user"]["nick_name"]}: 阿金寶貝回應 mention (p-wave)")
@@ -252,6 +264,8 @@ while True:
     print("Auth success!")
     if match:
         rawdata = match.group(1)
+    else:
+        continue
     data = json.loads(rawdata)
     new_offset = data.get('new_offset', -1)
     msgs = data.get('data')
@@ -296,6 +310,8 @@ while True:
             if str(user_id) == "16713667":
                 isAdmin = True
             dealContent(pid, user_content, isAdmin, "", user_nick_name)
+    
+    time.sleep(5)
 
 
 # print(plurk.callAPI('/APP/Profile/getOwnProfile'))
