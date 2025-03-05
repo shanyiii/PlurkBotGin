@@ -139,7 +139,7 @@ def dealContent(pid, user_content, isCmd, p, user_nick_name):
             elif num > 10:
                 plurkResponse(pid, f"@{user_nick_name}: 太貪心辣！一次最多只能抽10個")
             else:
-                plurkResponse(pid, f"@{user_nick_name}: ┌(。Д。)┐?!!")
+                plurkResponse(pid, f"@{user_nick_name}: ┌(。Д。)┐?!![emo4]")
         else:
             print("re 未匹配成功(格式有誤)")
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
