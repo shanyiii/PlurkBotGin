@@ -1,5 +1,6 @@
 from plurk_oauth import PlurkAPI
-from db_manager import db_addData, db_readData
+from db_manager import db_addData, db_readData, db_removeData
+from common import BAN_LIST, GIN_RANDOM_RESPONSES
 import urllib.request
 import re, json, random
 
@@ -16,8 +17,10 @@ comet_channel = comet.get('comet_server') + "&new_offset=%d"
 jsonp_re = re.compile(r'CometChannel.scriptCallback\((.+)\);\s*');
 new_offset = -1
 
+# 阿金的uid=17637392
 category_list = ["服裝", "互動"]
 friend_list = list()
+admin_list = {"16713667": "352533876594842"}
 
 # 認證
 def auth():
@@ -55,6 +58,15 @@ def initApi():
 def plurkResponse(pid, bot_content):
     plurk.callAPI('/APP/Responses/responseAdd', {'plurk_id': pid, 'content': bot_content, 'qualifier': ':'})
 
+# 檢查是否在資料庫中
+def is_in_db(query):
+    data = db_readData(query, True)
+    print(f"data in db: {data}")
+    if data:
+        return True
+    else:
+        return False
+
 # 把 tags 存到資料庫
 def save_tags_to_db(category, options, user_nick_name, pid):
     if category in category_list:
@@ -62,46 +74,55 @@ def save_tags_to_db(category, options, user_nick_name, pid):
         for option in options:
             if option == "":
                 continue
+            if option in BAN_LIST:
+                bot_contents.append("阿金抓到了敏感字詞")
+                continue
             query = {"$and": [
                 {"category": category},
                 {"tag": option}
             ]}
-            data = db_readData(query, True)
-            print(f"data in db: {data}")
-            if data is None:
+            if is_in_db(query):
+                print("資料庫已有相同資料")
+                bot_contents.append(f"「{option}」已存在，不需要再新增啦！")
+            else:
                 new_tag = dict()
                 new_tag['category'] = category
                 new_tag['tag'] = option
                 db_addData(new_tag)
-                bot_contents.append(f"「{option}」成功新增")
-            else:
-                print("資料庫已有相同資料")
-                bot_contents.append(f"「{option}」已存在，不需要再新增啦！")
+                bot_contents.append(f"「{option}」新增成功！")
         bot_content = '\n'.join(bot_contents)
         plurkResponse(pid, bot_content)
     else:
         print("查無分類")
-        plurkResponse(pid, f"沒有「{category}」這個分類歐！")
+        plurkResponse(pid, f"沒有「{category}」這個分類歐[emo3]")
+
+def start_match(pattern, user_content):
+    # 進行匹配
+    match = re.match(pattern, user_content)
+    if match:
+        category = match.group(1)  # 取得兩字詞(服裝、互動)
+        options = match.group(2).split("、")  # 取得選項列表
+        print("分類:", category)
+        print("選項:", options)
+        return category, options
+    else:
+        return None, None
 
 def slotTags(category, num):
     data = db_readData({"category": category}, False)
     all_data = list(data)
-    i = 0
-    # print(f"data:\n{all_data}")
-    maximum = len(all_data)
-    print(f"Length of data list: {maximum}")
+    tag_list = [ad['tag'] for ad in all_data]
     slot_result = list()
-    while i < num:
-        ran = random.randrange(maximum)
-        tag = all_data[ran]['tag']
-        if tag not in slot_result:
-            print(f"{i}. 抽到的 tag: {tag}")
-            slot_result.append(tag)
-            i = i + 1
+    random.shuffle(tag_list)
+    # print(f"random list: {tag_list}")
+    for i in range(0, num):
+        slot_result.append(tag_list[i])
+        print(f"{i}. 抽到的 tag: {tag_list[i]}")
     return slot_result
 
-def dealContent(pid, user_content, isCmd, p, user_nick_name):
+def dealContent(pid, user_content, isAdmin, p, user_nick_name):
     print(f"reply plurk id:{pid}\ncontent:{user_content}")
+    print(f"is admin: {isAdmin}")
     # plurkResponse(pid, f"@{user_nick_name}: 阿金寶貝進入新噗文留下一顆心 (heart)")
 
     # 新增 tags 功能
@@ -109,55 +130,93 @@ def dealContent(pid, user_content, isCmd, p, user_nick_name):
         # 正則表達式：新增<category>：<tag>、<tag>
         pattern = r"(?:.*[\n\s]*)?新增(\w{2})：(.+)"
         # 進行匹配
-        match = re.match(pattern, user_content)
-        if match:
-            category = match.group(1)  # 取得兩字詞(服裝、互動)
-            options = match.group(2).split("、")  # 取得選項列表
-            print("分類:", category)
-            print("選項:", options)
+        category, options = start_match(pattern, user_content)
+        if category is not None and options is not None:
             save_tags_to_db(category, options, user_nick_name, pid)
-        else:
-            print("re 未匹配成功(格式有誤)")
-            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩")
-
-    # 抽 tag 功能
-    if user_content.find("抽") != -1:
-        # 正則表達式：新增<category><num>個
-        pattern = r"(?:.*[\n\s]*)?抽(\w{2})(\d+)"
-        # 進行匹配
-        match = re.match(pattern, user_content)
-        if match:
-            category = match.group(1)  # 取得兩字詞(服裝、互動)
-            number = match.group(2).split("、")  # 取得抽取數量
-            num = int(number[0])
-            print("分類:", category)
-            print("數量:", num)
-            if 0 < num <= 10:
-                result = slotTags(category, num)
-                result = '、'.join(result)
-                plurkResponse(pid, f"@{user_nick_name}: 「{category}」{num}抽的抽選結果：\n{result}")
-            elif num > 10:
-                plurkResponse(pid, f"@{user_nick_name}: 太貪心辣！一次最多只能抽10個")
-            else:
-                plurkResponse(pid, f"@{user_nick_name}: ┌(。Д。)┐?!![emo4]")
         else:
             print("re 未匹配成功(格式有誤)")
             plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
 
-    # if content.find("進村") != -1 or content.find("開村") != -1:
-    #     plurkResponse(pid, ' 進村拉～')
-    # if content.find("鴨鴨") != -1:
-    #     response = requests.get(duck_url)
-    #     if response.status_code == 200:
-    #         plurkResponse(pid, '呱呱！' + response.json()['url'])
-    # else:
-    #     if content.find("謝謝") != -1:
-    #         plurkResponse(pid, "不客氣拉！[emo9]")
-    #     elif content.find("喜歡") != -1 or content.find("棒") != -1:
-    #         plurkResponse(pid, "謝謝你的喜歡！也記得要這麼喜歡自己喔！[emo9]")
-    #     else:
-    #         random.shuffle(random_list)
-    #         plurkResponse(pid, random_list[0])
+    # 抽 tags 功能
+    if user_content.find("抽") != -1:
+        # 正則表達式：新增<category><num>個
+        pattern = r"(?:.*[\n\s]*)?抽(\w{2})(\d+)"
+        # 進行匹配
+        category, number = start_match(pattern, user_content)
+        if category is not None and number is not None:
+            num = int(number[0])
+            if category in category_list:
+                if 0 < num <= 10:
+                    result = slotTags(category, num)
+                    result = '、'.join(result)
+                    plurkResponse(pid, f"@{user_nick_name}: 「{category}」{num}抽的抽選結果：\n{result}")
+                elif num > 10:
+                    plurkResponse(pid, f"@{user_nick_name}: 太貪心辣[emo4]一次最多只能抽10個")
+                else:
+                    plurkResponse(pid, f"@{user_nick_name}: ┌(。Д。)┐?!![emo4]")
+            else:
+                print("查無分類")
+                plurkResponse(pid, f"沒有「{category}」這個分類歐[emo3]")
+        else:
+            print("re 未匹配成功(格式有誤)")
+            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
+
+    # 檢舉功能
+    if user_content.find("檢舉") != -1:
+        # 正則表達式：檢舉<category>：<tag>、<tag>、......
+        pattern = r"(?:.*[\n\s]*)?檢舉(\w{2})：(.+)"
+        category, options = start_match(pattern, user_content)
+        if category is not None and options is not None:
+            report_contents = [f"@{user_nick_name}: 謝謝您的檢舉，檢舉結果："]
+            report_to_admin = list()
+            for option in options:
+                query = {"$and": [
+                    {"category": category},
+                    {"tag": option}
+                ]}
+                if is_in_db(query):
+                    report_contents.append(f"「{option}」已受理檢舉")
+                    report_to_admin.append(option)
+                else:
+                    report_contents.append(f"「{option}」並沒有在阿金的資料庫中！")
+            report_content = '\n'.join(report_contents)
+            report_to_admin = '、'.join(report_to_admin)
+            plurkResponse(admin_list['16713667'], f"@yf168px: 收到來自 {user_nick_name} 的檢舉：{report_to_admin}")
+            plurkResponse(pid, report_content)
+        else:
+            print("re 未匹配成功(格式有誤)")
+            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
+    
+    # 刪除 tag 功能(僅限管理員)
+    if user_content.find("刪除") != -1 and isAdmin:
+        pattern = r"(?:.*[\n\s]*)?刪除(\w{2})：(.+)"
+        category, options = start_match(pattern, user_content)
+        if category is not None and options is not None:
+            remove_contents = [f"@{user_nick_name}: 刪除結果："]
+            for option in options:
+                query = {"$and": [
+                    {"category": category},
+                    {"tag": option}
+                ]}
+                if is_in_db(query):
+                    db_removeData(query)
+                    remove_contents.append(f"「{option}」已刪除")
+                else:
+                    remove_contents.append(f"「{option}」並沒有在阿金的資料庫中！")
+            remove_content = '\n'.join(remove_contents)
+            plurkResponse(pid, remove_content)
+        else:
+            print("re 未匹配成功(格式有誤)")
+            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
+
+    # 阿金乾杯!
+    if user_content.find("乾杯") != -1:
+        plurkResponse(pid, f"@{user_nick_name}: 阿金準備了(dice10)杯琴酒，今天不醉不歸！")
+
+    else:
+        res_list = GIN_RANDOM_RESPONSES
+        random.shuffle(res_list)
+        plurkResponse(pid, f"@{user_nick_name}: {res_list[0]}")
 
 # 透過 response_id 找到噗文內的回應
 def findTargetResponse(res_list, res_id):
@@ -172,7 +231,8 @@ def responseMentioned():
         for p in plurks:
             if p is not None:
                 if p['type'] == "mentioned":
-                    print(f"[responseMentioned]: plurk id = {p['plurk_id']}")
+                    print(f"[responseMentioned]: plurk id = {p['plurk_id']}\n")
+                    isAdmin = False
                     # plurkResponse(p['plurk_id'], f"@{p["from_user"]["nick_name"]}: 阿金寶貝回應 mention (p-wave)")
                     
                     res_id = p['response_id']
@@ -183,7 +243,9 @@ def responseMentioned():
                     else:
                         res_list = res_json['responses']
                         target = findTargetResponse(res_list, res_id)
-                        dealContent(pid, target, True, p, p['from_user']["nick_name"])
+                        if str(p["from_user"]["id"]) == "16713667":
+                            isAdmin = True
+                        dealContent(pid, target, isAdmin, p, p['from_user']["nick_name"])
 
 while True:
     match = initApi()
@@ -201,6 +263,18 @@ while True:
         continue
     for msg in msgs:
         # print(f"msg get:\n{msg}")
+        isAdmin = False
+
+        if str(user_id) == "17637392":
+            print("阿金抓到自己")
+            continue
+            # try:
+            #     pid = msg['plurk']['plurk_id']
+            #     user_id = msg['plurk']['user_id']
+            # except Exception as e:
+            #     print("get error: \n" + str(e))
+            #     continue
+
         pid = msg.get('plurk_id')
         try:
             user_id = msg['response']['user_id']
@@ -210,14 +284,6 @@ while True:
         except Exception as e:
             print("get error: \n" + str(e))
             continue
-        
-        if user_id is None:
-            try:
-                pid = msg['plurk']['plurk_id']
-                user_id = msg['plurk']['user_id']
-            except Exception as e:
-                print("get error: \n" + str(e))
-                continue
 
         # 檢查是否為好友
         if str(user_id) not in friend_list:
@@ -227,7 +293,9 @@ while True:
         if msg.get('type') == 'new_plurk':
             print(f"reply now user:{user_id} msg: {msg.get('content')}")
             user_content = msg.get('content_raw')
-            dealContent(pid, user_content, False, "", user_nick_name)
+            if str(user_id) == "16713667":
+                isAdmin = True
+            dealContent(pid, user_content, isAdmin, "", user_nick_name)
 
 
 # print(plurk.callAPI('/APP/Profile/getOwnProfile'))

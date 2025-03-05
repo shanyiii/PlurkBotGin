@@ -19,3 +19,6 @@ def db_readData(query, isFindOne=False):
     else:
         data = mycol.find(query)
     return data
+
+def db_removeData(query):
+    mycol.delete_one(query)
