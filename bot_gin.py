@@ -178,7 +178,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
                     report_contents.append(f"「{option}」已受理檢舉")
                     report_to_admin.append(option)
                 else:
-                    report_contents.append(f"「{option}」並沒有在阿金的資料庫中！")
+                    report_contents.append(f"「{option}」並沒有在阿金的腦袋中！")
             report_content = '\n'.join(report_contents)
             report_to_admin = '、'.join(report_to_admin)
             plurkResponse(admin_list['16713667'], f"@yf168px: 收到來自 {user_nick_name} 的檢舉：{report_to_admin}")
@@ -202,7 +202,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
                     db_removeData(query)
                     remove_contents.append(f"「{option}」已刪除")
                 else:
-                    remove_contents.append(f"「{option}」並沒有在阿金的資料庫中！")
+                    remove_contents.append(f"「{option}」並沒有在阿金的腦袋中！")
             remove_content = '\n'.join(remove_contents)
             plurkResponse(pid, remove_content)
         else:
