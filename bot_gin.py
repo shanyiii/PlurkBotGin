@@ -1,6 +1,6 @@
 from plurk_oauth import PlurkAPI
 from db_manager import db_addData, db_readData, db_removeData
-from common import BAN_LIST, GIN_RANDOM_RESPONSES
+from common import BAN_LIST, GIN_RANDOM_RESPONSES, GIN_FEEL_LIKE, GIN_WHAT_TO_EAT
 import urllib.request
 import re, json, random, time
 
@@ -103,7 +103,7 @@ def save_tags_to_db(category, options, user_nick_name, pid):
         plurkResponse(pid, bot_content)
     else:
         print("查無分類")
-        plurkResponse(pid, f"沒有「{category}」這個分類歐[emo3]")
+        plurkResponse(pid, f"沒有「{category}」這個分類歐[emo11]")
 
 def start_match(pattern, user_content):
     # 進行匹配
@@ -144,7 +144,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             save_tags_to_db(category, options, user_nick_name, pid)
         else:
             print("re 未匹配成功(格式有誤)")
-            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
+            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo9]")
 
     # 抽 tags 功能
     elif user_content.find("抽") != -1 and user_content.find("@gin_the_golden") != -1:
@@ -162,13 +162,13 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
                 elif num > 10:
                     plurkResponse(pid, f"@{user_nick_name}: 太貪心辣[emo4]一次最多只能抽10個")
                 else:
-                    plurkResponse(pid, f"@{user_nick_name}: ┌(。Д。)┐?!![emo4]")
+                    plurkResponse(pid, f"@{user_nick_name}: ┌(。Д。)┐?!![emo10]")
             else:
                 print("查無分類")
                 plurkResponse(pid, f"沒有「{category}」這個分類歐[emo3]")
         else:
             print("re 未匹配成功(格式有誤)")
-            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
+            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo9]")
 
     # 檢舉功能
     elif user_content.find("檢舉") != -1 and user_content.find("@gin_the_golden") != -1:
@@ -194,7 +194,7 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, report_content)
         else:
             print("re 未匹配成功(格式有誤)")
-            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
+            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo9]")
     
     # 刪除 tag 功能(僅限管理員)
     elif user_content.find("刪除") != -1 and isAdmin and user_content.find("@gin_the_golden") != -1:
@@ -216,11 +216,19 @@ def dealContent(pid, user_content, isAdmin, p, user_nick_name):
             plurkResponse(pid, remove_content)
         else:
             print("re 未匹配成功(格式有誤)")
-            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo5]")
+            plurkResponse(pid, f"@{user_nick_name}: 怎麼怪怪der~是不是格式打錯哩[emo9]")
 
     # 阿金乾杯!
     elif user_content.find("乾杯") != -1 and user_content.find("@gin_the_golden") != -1:
-        plurkResponse(pid, f"@{user_nick_name}: 阿金準備了(dice10)杯琴酒，今天不醉不歸！")
+        plurkResponse(pid, f"@{user_nick_name}: 阿金準備了(dice10)杯琴酒，今天不醉不歸[emo16]")
+
+    # 阿金吃什麼
+    elif user_content.find("吃什麼") != -1 and user_content.find("@gin_the_golden") != -1:
+        feel = GIN_FEEL_LIKE
+        food = GIN_WHAT_TO_EAT
+        random.shuffle(feel)
+        random.shuffle(food)
+        plurkResponse(pid, f"@{user_nick_name}: {feel[0]}{food[0]}")
 
     elif user_content.find("@gin_the_golden") != -1:
         res_list = GIN_RANDOM_RESPONSES
